@@ -4,7 +4,7 @@ import random
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 
 app = Flask(__name__)
-# กำหนด Secret Key เพื่อให้ระบบ Session (ตะกร้าสินค้า) ทำงานได้
+# กำหนด Secret Key เพื่อให้ระบบ Session ตะกร้าสินค้าทำงานได้
 app.secret_key = 'iot_final_project_super_secret_key'
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -20,7 +20,7 @@ def index():
     conn = get_db_connection()
     categories = conn.execute('SELECT * FROM categories').fetchall()
     
-    # ตัวกรองหมวดหมู่สินค้า
+    # ระบบกรองสินค้าตามหมวดหมู่
     category_id = request.args.get('category_id')
     if category_id:
         products = conn.execute('''
@@ -37,22 +37,20 @@ def index():
             WHERE p.stock > 0
         ''').fetchall()
     
-    # --- ฟังก์ชันดึงข้อมูลสำหรับฝั่งเจ้าของร้าน (Admin Zone) ---
-    # 1. แจ้งเตือนสินค้าใกล้หมด (สต็อกน้อยกว่าหรือเท่ากับ 5 ชิ้น)
+    # 📊 ส่วนของเจ้าของร้าน (Admin Dashboard)
+    # 1. แจ้งเตือนสินค้าสต็อกใกล้หมด (เหลือชิ้นส่วนน้อยกว่าหรือเท่ากับ 5 ชิ้น)
     low_stock_alerts = conn.execute('SELECT * FROM products WHERE stock <= 5 ORDER BY stock ASC').fetchall()
     
-    # 2. ดึงประวัติการสั่งซื้อล่าสุด 5 รายการ
+    # 🔥 [จุดที่แก้ไข] ปรับ SQL ให้เรียงลำดับเอา Order ล่าสุด (ID มากที่สุด) ขึ้นมาอยู่บนสุดเสมอ
     recent_orders = conn.execute('''
-        SELECT o.order_id, o.order_date, o.total_price, od.quantity, p.product_name
-        FROM orders o
-        JOIN order_details od ON o.order_id = od.order_id
+        SELECT od.order_id, o.order_date, o.total_price, od.quantity, p.product_name, od.subtotal
+        FROM order_details od
+        JOIN orders o ON od.order_id = o.order_id
         JOIN products p ON od.product_id = p.product_id
-        ORDER BY o.order_date DESC LIMIT 5
+        ORDER BY CAST(o.order_id AS INTEGER) DESC, od.detail_id DESC LIMIT 10
     ''').fetchall()
     
     conn.close()
-
-    # ดึงข้อมูลสินค้าที่อยู่ในตะกร้าปัจจุบันมาคำนวณแสดงผล
     cart = session.get('cart', {})
     
     return render_template('index.html', 
@@ -63,7 +61,7 @@ def index():
                            recent_orders=recent_orders,
                            cart=cart)
 
-# --- 🛒 ฟังก์ชันที่ 1: เพิ่มสินค้าลงตะกร้า ---
+# 🛒 ฟังก์ชัน: เพิ่มสินค้าลงตะกร้า
 @app.route('/add_to_cart', methods=['POST'])
 def add_to_cart():
     product_id = request.form.get('product_id')
@@ -76,7 +74,6 @@ def add_to_cart():
         
     cart = session['cart']
     
-    # ถ้ามีสินค้าในตะกร้าอยู่แล้วให้บวกจำนวนเพิ่ม ถ้ายังไม่มีให้สร้างใหม่
     if product_id in cart:
         cart[product_id]['quantity'] += quantity
     else:
@@ -90,14 +87,14 @@ def add_to_cart():
     flash(f'เพิ่ม {product_name} ลงในตะกร้าแล้ว', 'success')
     return redirect(url_for('index'))
 
-# --- 🗑️ ฟังก์ชันที่ 2: ล้างสินค้าในตะกร้าทั้งหมด ---
+# 🗑️ ฟังก์ชัน: ล้างสินค้าในตะกร้าทั้งหมด
 @app.route('/clear_cart')
 def clear_cart():
     session.pop('cart', None)
     flash('ล้างตะกร้าสินค้าเรียบร้อยแล้ว', 'success')
     return redirect(url_for('index'))
 
-# --- 💳 ฟังก์ชันที่ 3: สั่งซื้อสินค้าทั้งหมดในตะกร้า (ตัดสต็อกและบันทึกลง DB) ---
+# 💳 ฟังก์ชัน: สั่งซื้อและตัดสต็อก (Real-time อัปเดต)
 @app.route('/checkout', methods=['POST'])
 def checkout():
     cart = session.get('cart', {})
@@ -109,33 +106,37 @@ def checkout():
     cursor = conn.cursor()
     
     try:
-        # คำนวณราคารวมทั้งหมดในตะกร้า
         total_price = sum(item['price'] * item['quantity'] for item in cart.values())
         
-        # 1. บันทึกลงตาราง orders หนึ่งครั้งต่อหนึ่งตะกร้า
-        cursor.execute('''
-            INSERT INTO orders (customer_id, order_date, total_price) 
-            VALUES ('CU01', CURRENT_TIMESTAMP, ?)
-        ''', (total_price,))
-        order_id = cursor.lastrowid
+        # ค้นหาค่า Order ID ที่มากที่สุดในตารางตอนนี้ แล้วบวกเพิ่มทีละ 1 เพื่อให้รหัสรันต่อกันขึ้นไปเรื่อยๆ
+        last_order = conn.execute('SELECT order_id FROM orders ORDER BY CAST(order_id AS INTEGER) DESC LIMIT 1').fetchone()
+        if last_order and last_order['order_id'].isdigit():
+            new_order_id = int(last_order['order_id']) + 1
+        else:
+            new_order_id = random.randint(1000, 9999) # กรณีตารางว่างให้สุ่มเลขเริ่มต้น
         
-        # 2. วนลูปบันทึกสินค้าแต่ละชิ้นลงตาราง order_details และหักสต็อก
+        # 1. บันทึกลงตาราง orders โดยดึงวันที่ปัจจุบันของเซิร์ฟเวอร์
+        cursor.execute('''
+            INSERT INTO orders (order_id, customer_id, order_date, total_price) 
+            VALUES (?, 'CU01', date('now'), ?)
+        ''', (str(new_order_id), total_price))
+        
+        # 2. บันทึกสินค้าลงตาราง order_details และหักสต็อกออกจาก products
         for product_id, item in cart.items():
-            # เช็คสต็อกจริงใน DB ก่อนตัด
             prod = conn.execute('SELECT stock FROM products WHERE product_id = ?', (product_id,)).fetchone()
             if prod['stock'] < item['quantity']:
-                raise Exception(f"สินค้า {item['name']} ในคลังมีไม่พอ (เหลือ {prod['stock']} ชิ้น)")
+                raise Exception(f"สินค้า {item['name']} มีจำนวนในคลังไม่พอ")
                 
             subtotal = item['price'] * item['quantity']
             detail_id = f"OD{random.randint(1000, 9999)}"
             
-            # บันทึกรายละเอียดสินค้า
+            # บันทึกรายละเอียดออเดอร์
             cursor.execute('''
                 INSERT INTO order_details (detail_id, order_id, product_id, quantity, subtotal) 
                 VALUES (?, ?, ?, ?, ?)
-            ''', (detail_id, str(order_id), product_id, item['quantity'], subtotal))
+            ''', (detail_id, str(new_order_id), product_id, item['quantity'], subtotal))
             
-            # หักสต็อกสินค้าในตาราง products
+            # อัปเดตตัดสต็อกสินค้าในคลัง
             cursor.execute('''
                 UPDATE products 
                 SET stock = stock - ? 
@@ -143,8 +144,8 @@ def checkout():
             ''', (item['quantity'], product_id))
             
         conn.commit()
-        session.pop('cart', None) # ซื้อเสร็จแล้วล้างตะกร้า
-        flash(f'สั่งซื้อสินค้าในตะกร้าทั้งหมดสำเร็จ! ยอดรวม ฿{total_price:,.2f}', 'success')
+        session.pop('cart', None) # ล้างตะกร้าหลังซื้อเสร็จสิ้น
+        flash(f'สั่งซื้อสำเร็จ! ยอดรวมทั้งสิ้น ฿{total_price:,.2f} ระบบบันทึกประวัติและตัดสต็อกเรียบร้อย', 'success')
         
     except Exception as e:
         conn.rollback()
