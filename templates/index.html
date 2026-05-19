@@ -68,7 +68,7 @@
                 </div>
 
                 {% if not cart %}
-                <p class="text-sm text-gray-400 py-2 text-center">ไม่มีสินค้าในตะกร้าในขณะนี้ กรุณากดเลือกสินค้าจากรายการด้านล่าง</p>
+                <p class="text-sm text-gray-400 py-2 text-center">ไม่มีสินค้าในตะกร้าในขณะนี้ กรุณากดเลือกสินค้าด้านล่างใส่ตะกร้า</p>
                 {% else %}
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm mb-4">
@@ -92,7 +92,6 @@
                                 <td class="py-2.5 text-right font-bold text-cyan-600">฿{{ "{:,.2f}".format(item_total) }}</td>
                             </tr>
                             {% endfor %}
-                            
                             <tr class="bg-cyan-50/50 font-bold text-base border-t-2 border-cyan-500/30">
                                 <td colspan="3" class="py-3 px-2 text-slate-900 text-right font-extrabold">ยอดรวมทั้งสิ้น:</td>
                                 <td class="py-3 text-right text-xl font-black text-amber-500">฿{{ "{:,.2f}".format(total_amount.value) }}</td>
@@ -102,7 +101,7 @@
                 </div>
                 <form action="/checkout" method="POST">
                     <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-lg shadow transition text-center text-sm">
-                        <i class="fa-solid fa-credit-card mr-2"></i> ยืนยันการสั่งซื้อและตัดสต็อกสินค้าทั้งหมด
+                        <i class="fa-solid fa-credit-card mr-2"></i> ส่งออเดอร์ตัดสต็อกสินค้าในคลังทั้งหมด
                     </button>
                 </form>
                 {% endif %}
@@ -160,19 +159,60 @@
                     <span class="text-xs text-slate-500 font-mono">Real-time DB Monitor</span>
                 </div>
 
+                <div class="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-3">
+                        <i class="fa-solid fa-square-plus mr-1"></i> เมนูจัดการเติมสต็อกสินค้าหลังบ้าน (คลิกเพิ่มชิ้นส่วนเข้าคลังได้ทันที)
+                    </h3>
+                    <div class="overflow-x-auto max-h-60 overflow-y-auto">
+                        <table class="w-full text-left text-xs text-slate-300">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-slate-500 font-bold">
+                                    <th class="pb-2">ชื่อชิ้นส่วน</th>
+                                    <th class="pb-2 text-center">สต็อกปัจจุบัน</th>
+                                    <th class="pb-2 text-center w-48">จำนวนที่รับเข้าเพิ่ม</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-900">
+                                {% for item in admin_products %}
+                                <tr class="hover:bg-slate-900/50">
+                                    <td class="py-2 font-medium {% if item.stock == 0 %}text-rose-400 font-bold{% endif %}">
+                                        {{ item.product_name }} {% if item.stock == 0 %}(สินค้าหมด!){% endif %}
+                                    </td>
+                                    <td class="py-2 text-center">
+                                        <span class="px-2 py-0.5 rounded font-bold {% if item.stock <= 5 %}bg-rose-950 text-rose-400 border border-rose-900/50{% else %}bg-slate-900 text-slate-400{% endif %}">
+                                            {{ item.stock }} ชิ้น
+                                        </span>
+                                    </td>
+                                    <td class="py-2 text-center">
+                                        <form action="/update_stock" method="POST" class="flex items-center space-x-1 justify-center">
+                                            <input type="hidden" name="product_id" value="{{ item.product_id }}">
+                                            <input type="number" name="add_quantity" value="10" min="1" required 
+                                                   class="w-16 px-1.5 py-1 text-center bg-slate-900 border border-slate-700 rounded text-xs font-bold text-white focus:outline-none focus:border-cyan-400">
+                                            <button type="submit" class="bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-black px-2 py-1 rounded shadow transition">
+                                                เติมของ
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="bg-slate-950 p-4 rounded-lg border border-slate-800">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-rose-400 mb-3">
-                            <i class="fa-solid fa-triangle-exclamation mr-1"></i> แจ้งเตือน: อุปกรณ์ใกล้หมดคลัง (<= 5 ชิ้น)
+                            <i class="fa-solid fa-triangle-exclamation mr-1"></i> สถานะ: อุปกรณ์ใกล้หมดคลัง (<= 5 ชิ้น)
                         </h3>
                         {% if not low_stock %}
-                        <p class="text-xs text-slate-500 text-center py-4">🎉 ยอดเยี่ยม! ไม่มีสินค้าชิ้นไหนใกล้หมดคลัง</p>
+                        <p class="text-xs text-slate-500 text-center py-4">🎉 ไม่มีชิ้นส่วนใดใกล้หมดคลัง</p>
                         {% else %}
-                        <ul class="space-y-2 text-xs max-h-40 overflow-y-auto">
+                        <ul class="space-y-2 text-xs max-h-48 overflow-y-auto">
                             {% for item in low_stock %}
-                            <li class="flex justify-between items-center bg-slate-900 p-2 rounded">
+                            <li class="flex justify-between items-center bg-slate-900 p-2 rounded border border-slate-800">
                                 <span class="text-slate-300 truncate max-w-[200px]">{{ item.product_name }}</span>
-                                <span class="text-rose-500 font-bold bg-rose-950/50 px-2 py-0.5 rounded">เหลือแค่ {{ item.stock }} ชิ้น</span>
+                                <span class="text-rose-500 font-bold bg-rose-950/50 px-2 py-0.5 rounded">คงเหลือ {{ item.stock }} ชิ้น</span>
                             </li>
                             {% endfor %}
                         </ul>
@@ -181,19 +221,22 @@
 
                     <div class="bg-slate-950 p-4 rounded-lg border border-slate-800">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">
-                            <i class="fa-solid fa-clock-rotate-left mr-1"></i> ประวัติการทำรายการสั่งซื้อล่าสุด
+                            <i class="fa-solid fa-clock-rotate-left mr-1"></i> ประวัติรายการสั่งซื้อล่าสุด
                         </h3>
                         {% if not recent_orders %}
-                        <p class="text-xs text-slate-500 text-center py-4">ยังไม่มีประวัติการสั่งซื้อในระบบ</p>
+                        <p class="text-xs text-slate-500 text-center py-4">ยังไม่มีประวัติการทำรายการในฐานข้อมูล</p>
                         {% else %}
-                        <div class="space-y-2 text-[11px] font-mono max-h-40 overflow-y-auto">
+                        <div class="space-y-2 max-h-48 overflow-y-auto">
                             {% for ord in recent_orders %}
-                            <div class="bg-slate-900 p-2 rounded flex justify-between text-slate-400">
+                            <div class="bg-slate-900 p-2 rounded text-xs border border-slate-800/60 flex justify-between items-center">
                                 <div>
-                                    <span class="text-white font-bold">#{{ ord.order_id }}</span> - {{ ord.product_name }} (x{{ ord.quantity }})
+                                    <span class="text-cyan-400 font-bold font-mono">#{{ ord.order_id }}</span>
+                                    <span class="text-slate-300 ml-1 font-medium">{{ ord.product_name }}</span>
+                                    <span class="text-slate-500 text-[11px]"> (x{{ ord.quantity }})</span>
                                 </div>
-                                <div class="text-right text-emerald-400 font-bold">
-                                    ฿{{ "{:,.2f}".format(ord.total_price) }}
+                                <div class="text-right">
+                                    <span class="text-emerald-400 font-bold font-mono">฿{{ "{:,.2f}".format(ord.subtotal) }}</span>
+                                    <p class="text-[10px] text-slate-500">{{ ord.order_date }}</p>
                                 </div>
                             </div>
                             {% endfor %}
@@ -207,7 +250,7 @@
     </main>
 
     <footer class="bg-slate-950 text-slate-600 text-center py-4 text-xs mt-12">
-        <p>&copy; 2026 IoT Store Management System Terminal. Running on Port 5000.</p>
+        <p>&copy; 2026 IoT Store Management System Terminal. Connected to Project Final.db</p>
     </footer>
 
 </body>
