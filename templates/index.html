@@ -1,1 +1,133 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Electronics & IoT Shop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col">
 
+    <nav class="bg-slate-900 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <a href="/" class="flex items-center space-x-2 text-xl font-bold tracking-wider text-cyan-400">
+                        <i class="fa-solid fa-microchip text-2xl"></i>
+                        <span>IoT <span class="text-white">ELECTRONICS</span></span>
+                    </a>
+                </div>
+                <div class="hidden md:block text-sm text-gray-400">
+                    <i class="fa-solid fa-store mr-1"></i> ระบบจัดการคลังสินค้าออนไลน์
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="bg-slate-800 text-white py-12 px-4 shadow-inner">
+        <div class="max-w-4xl mx-auto text-center">
+            <h1 class="text-3xl md:text-4xl font-extrabold mb-4">ค้นหาอุปกรณ์อิเล็กทรอนิกส์ & IoT</h1>
+            <p class="text-slate-300 mb-6">รวมบอร์ดไมโครคอนโทรลเลอร์ เซนเซอร์ และโมดูลคุณภาพสูงสำหรับโปรเจกต์ของคุณ</p>
+            
+            <form action="/" method="GET" class="flex flex-col sm:flex-row gap-2 max-w-2xl mx-auto">
+                <input type="hidden" name="category" value="{{ current_category }}">
+                <div class="relative flex-grow">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </span>
+                    <input type="text" name="search" value="{{ search_query }}" placeholder="พิมพ์ชื่อสินค้าที่ต้องการค้นหา เช่น Arduino, ESP32..." 
+                           class="w-full pl-10 pr-4 py-3 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                </div>
+                <button type="submit" class="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold px-6 py-3 rounded-lg transition duration-200">
+                    ค้นหาสินค้า
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+        <div class="flex flex-col lg:flex-row gap-8">
+            
+            <div class="w-full lg:w-64 shrink-0">
+                <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 sticky top-24">
+                    <h2 class="text-lg font-bold mb-4 flex items-center text-slate-950">
+                        <i class="fa-solid fa-layer-group text-cyan-500 mr-2"></i> หมวดหมู่สินค้า
+                    </h2>
+                    <div class="space-y-1">
+                        <a href="/?search={{ search_query }}" 
+                           class="block px-3 py-2.5 rounded-lg text-sm font-medium transition {% if not current_category %}bg-cyan-50 text-cyan-600 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}">
+                            สินค้าทั้งหมด
+                        </a>
+                        {% for cat in categories %}
+                        <a href="/?category={{ cat.category_id }}&search={{ search_query }}" 
+                           class="block px-3 py-2.5 rounded-lg text-sm font-medium transition {% if current_category == cat.category_id %}bg-cyan-50 text-cyan-600 font-semibold{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}">
+                            {{ cat.category_name }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-grow">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-slate-900">
+                        {% if search_query %} ผลการค้นหาสำหรับ "{{ search_query }}" {% else %} รายการสินค้าทั้งหมด {% endif %}
+                    </h2>
+                    <span class="text-sm text-gray-500">พบสินค้าทั้งหมด {{ products|length }} รายการ</span>
+                </div>
+
+                {% if products|length == 0 %}
+                <div class="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-100">
+                    <div class="text-gray-300 text-5xl mb-4">
+                        <i class="fa-solid fa-box-open"></i>
+                    </div>
+                    <p class="text-gray-500 text-lg">ไม่พบสินค้าที่ตรงกับเงื่อนไขของคุณ</p>
+                    <a href="/" class="mt-4 inline-block text-sm text-cyan-500 hover:underline">ล้างตัวกรองทั้งหมด</a>
+                </div>
+                {% else %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {% for product in products %}
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition duration-200 flex flex-col justify-between group">
+                        <div class="p-5">
+                            <span class="inline-block bg-slate-100 text-slate-600 text-xs px-2.5 py-1 rounded-full font-medium mb-3">
+                                {{ product.category_name }}
+                            </span>
+                            <h3 class="font-bold text-gray-900 text-lg group-hover:text-cyan-600 transition mb-1 line-clamp-2">
+                                {{ product.product_name }}
+                            </h3>
+                            <p class="text-xs text-gray-400 mb-4">รหัสสินค้า: {{ product.product_id }}</p>
+                            
+                            <div class="flex items-baseline justify-between mt-2">
+                                <span class="text-2xl font-black text-amber-500">฿{{ "{:,.2f}".format(product.price) }}</span>
+                                {% if product.stock > 0 %}
+                                <span class="text-xs bg-emerald-50 text-emerald-600 px-2 py-1 rounded font-medium">
+                                    คงเหลือ {{ product.stock }} ชิ้น
+                                </span>
+                                {% else %}
+                                <span class="text-xs bg-rose-50 text-rose-600 px-2 py-1 rounded font-medium">
+                                    สินค้าหมด
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="p-5 pt-0">
+                            <a href="/product/<{{ product.product_id }}>" class="w-full block text-center bg-slate-900 hover:bg-cyan-600 text-white font-medium py-2.5 rounded-lg transition duration-150 text-sm">
+                                <i class="fa-solid fa-circle-info mr-1"></i> ดูรายละเอียด
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+        </div>
+    </main>
+
+    <footer class="bg-slate-950 text-slate-400 text-center py-6 border-t border-slate-800 mt-12 text-sm">
+        <p>&copy; 2026 IoT Electronics Shop. All rights reserved. Database Powered system.</p>
+    </footer>
+
+</body>
+</html>
