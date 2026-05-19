@@ -81,20 +81,28 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-50">
+                            {% set total_amount = namespace(value=0) %}
                             {% for p_id, item in cart.items() %}
+                                {% set item_total = item.price * item.quantity %}
+                                {% set total_amount.value = total_amount.value + item_total %}
                             <tr>
                                 <td class="py-2.5 font-medium text-slate-900">{{ item.name }}</td>
                                 <td class="py-2.5 text-center font-bold text-slate-600">{{ item.quantity }} ชิ้น</td>
                                 <td class="py-2.5 text-right text-gray-500">฿{{ "{:,.2f}".format(item.price) }}</td>
-                                <td class="py-2.5 text-right font-bold text-cyan-600">฿{{ "{:,.2f}".format(item.price * item.quantity) }}</td>
+                                <td class="py-2.5 text-right font-bold text-cyan-600">฿{{ "{:,.2f}".format(item_total) }}</td>
                             </tr>
                             {% endfor %}
+                            
+                            <tr class="bg-cyan-50/50 font-bold text-base border-t-2 border-cyan-500/30">
+                                <td colspan="3" class="py-3 px-2 text-slate-900 text-right font-extrabold">ยอดรวมทั้งสิ้น:</td>
+                                <td class="py-3 text-right text-xl font-black text-amber-500">฿{{ "{:,.2f}".format(total_amount.value) }}</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
                 <form action="/checkout" method="POST">
                     <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-lg shadow transition text-center text-sm">
-                        <i class="fa-solid fa-credit-card mr-2"></i> กดส่งออเดอร์และตัดสต็อกทั้งหมดในตะกร้า
+                        <i class="fa-solid fa-credit-card mr-2"></i> ยืนยันการสั่งซื้อและตัดสต็อกสินค้าทั้งหมด
                     </button>
                 </form>
                 {% endif %}
